@@ -1,112 +1,128 @@
-import json
-
 from calculator import add, subtract
 from ollama_client import ask_llm
 
-
 SYSTEM_PROMPT = """
-You are an AI planning engine.
+You are a Python code generation engine.
 
-Your ONLY job is to determine:
-1. The mathematical operation.
-2. The two numbers.
+You ONLY have access to these functions:
 
-DO NOT calculate the answer.
+add(a, b)
+subtract(a, b)
 
-Return ONLY valid JSON.
+Rules:
+
+1. Never use +, -, * or / operators.
+2. Never define new functions.
+3. Only use add() and subtract().
+4. Store the final answer in a variable called result.
+5. Return ONLY executable Python code.
+6. Do not explain anything.
+7. Do not use markdown.
+8. Do not use ```python.
 
 Examples:
 
-User: Add 3 and 4
+User:
+Add 2 and 3
 
-{
-    "operation":"add",
-    "a":3,
-    "b":4
-}
+Output:
 
-User: Subtract 10 and 2
+result = add(2, 3)
 
-{
-    "operation":"subtract",
-    "a":10,
-    "b":2
-}
+-----------------------------------
 
-User: Multiply 6 by 2
+User:
+Subtract 10 and 4
 
-{
-    "operation":"multiply",
-    "a":6,
-    "b":2
-}
+Output:
 
-User: Divide 20 by 5
+result = subtract(10, 4)
 
-{
-    "operation":"divide",
-    "a":20,
-    "b":5
-}
+-----------------------------------
 
-Never explain.
+User:
+Multiply 2 by 3
 
-Never use markdown.
+Output:
 
-Never use ```json.
+result = 0
 
-Return ONLY the JSON object.
+for _ in range(3):
+    result = add(result, 2)
+
+-----------------------------------
+
+User:
+Multiply 5 by 4
+
+Output:
+
+result = 0
+
+for _ in range(4):
+    result = add(result, 5)
+
+-----------------------------------
+
+User:
+Divide 8 by 2
+
+Output:
+
+result = 0
+count = 0
+
+while result != 8:
+    result = add(result, 2)
+    count = add(count, 1)
+
+result = count
+
+Return ONLY the Python code.
 """
 
 
 def process_prompt(user_prompt: str):
 
-    # Ask Ollama
-    response = ask_llm(
+    # Ask the LLM to generate Python code
+    generated_code = ask_llm(
         SYSTEM_PROMPT,
         user_prompt
     )
+    generated_code = generated_code.replace("```python", "")
+    generated_code = generated_code.replace("```", "")
+    generated_code = generated_code.strip()
 
-    print("\n========== RAW LLM RESPONSE ==========")
-    print(response)
-    print("======================================\n")
+    print("\n========== GENERATED CODE ==========")
+    print(generated_code)
+    print("====================================\n")
 
-    # Try converting response into JSON
+    # Only expose these functions and necessary iterators to the generated code
+    safe_globals = {
+        "add": add,
+        "subtract": subtract,
+        "__builtins__": {
+            "range": range
+        }
+    }
+
+    safe_locals = {}
+
     try:
-        plan = json.loads(response)
+        exec(generated_code, safe_globals, safe_locals)
     except Exception as e:
-        return f"Invalid JSON returned by LLM:\n\n{response}\n\nError:\n{e}"
+        return {
+            "code": generated_code,
+            "result": f"Execution Error:\n{e}"
+        }
 
-    operation = plan.get("operation")
-    a = plan.get("a")
-    b = plan.get("b")
+    if "result" not in safe_locals:
+        return {
+            "code": generated_code,
+            "result": "The generated code did not produce a variable named 'result'."
+        }
 
-    if operation == "add":
-        return str(add(a, b))
-
-    elif operation == "subtract":
-        return str(subtract(a, b))
-
-    elif operation == "multiply":
-
-        result = 0
-
-        for _ in range(b):
-            result = add(result, a)
-
-        return str(result)
-
-    elif operation == "divide":
-
-        if b == 0:
-            return "Cannot divide by zero."
-
-        count = 0
-
-        while a >= b:
-            a = subtract(a, b)
-            count += 1
-
-        return str(count)
-
-    return f"Unknown operation: {operation}"
+    return {
+        "code": generated_code,
+        "result": str(safe_locals["result"])
+    }

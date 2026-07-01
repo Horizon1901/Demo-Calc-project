@@ -28,9 +28,6 @@ def root():
 
 @app.post("/calculate")
 def calculate(data: PromptRequest):
-
-    result = process_prompt(data.prompt)
-
-    return {
-        "result": result
-    }
+    # This now passes back the full dictionary payload containing code and calculated text
+    response_data = process_prompt(data.prompt)
+    return response_data
