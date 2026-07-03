@@ -1,8 +1,9 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+# This file is used to connect my frontend to the calculator.py file
 
-from agent import process_prompt
+from fastapi import FastAPI                         # Web frameowrk to create the backend API
+from fastapi.middleware.cors import CORSMiddleware  # Middleware to allow cross-origin requests from the frontend. Basically wont run on the web browser if not present
+from pydantic import BaseModel                      # Defines shape of the data
+from agent import process_prompt                    # Injects main procssing function
 
 app = FastAPI()
 
